@@ -1,0 +1,173 @@
+---
+title: "Untitled"
+author: "Jakub Laszczyk, Sandra Bogdan"
+date: "2023-05-24"
+output: html_document
+---
+Czym są ratingi?
+
+Ratingi to oceny lub klasyfikacje przypisywane firmom, krajom lub instrumentom finansowym przez agencje ratingowe. Służą one do oceny ryzyka kredytowego, czyli zdolności dłużnika do spłaty swoich zobowiązań. Ratingi są wyrażane za pomocą liter lub symboli, takich jak "AAA", "A", "B", itp., które reprezentują różne poziomy jakości kredytowej.
+Wymienić znane agencje ratingowe. Jak podzielone są w tych agencjach ratingi?
+Standard & Poor's (S&P)
+Moody's Investors Service
+Fitch Ratings
+W tych agencjach ratingi są zazwyczaj podzielone na kilka kategorii, takich jak:
+
+Ratingi inwestycyjne (np. "AAA", "AA", "A") oznaczające wysoką jakość kredytową.
+Ratingi spekulacyjne (np. "BBB", "BB", "B") oznaczające średnią jakość kredytową.
+Ratingi niskiej jakości (np. "CCC", "CC", "C") oznaczające niską jakość kredytową.
+Ratingi w kategorii śmieciowej (np. "D") oznaczające niewypłacalność lub brak spłaty zobowiązań.
+
+
+Czym jest model CreditMetrics?
+
+Model CreditMetrics to model statystyczny wykorzystywany do pomiaru ryzyka kredytowego. Jest on używany do oszacowania wartości w narażeniu na ryzyko utraty związane z portfelem obligacji lub innych instrumentów dłużnych. Model CreditMetrics uwzględnia różne czynniki ryzyka, takie jak ratingi, struktura zadłużenia, stopy odzysku, zmienność rynku itp., aby obliczyć potencjalne straty związane z ryzykiem kredytowym.
+Co to jest stopa odzysku?
+
+Stopa odzysku (recovery rate) to procentowa wartość oczekiwanej kwoty odzyskanej z inwestycji po wystąpieniu zdarzenia związanego z niewypłacalnością dłużnika. Wyraża ona, ile inwestor może oczekiwać odzyskać z inwestycji, gdy dłużnik nie jest w stanie spłacić swojego długu lub deklaruje upadłość. Stopa odzysku jest istotnym czynnikiem w ocenie ryzyka kredytowego i obliczaniu strat w przypadku niewypłacalności.
+Co to jest VaR i ES?
+
+VaR (Value at Risk) to metoda pomiaru ryzyka finansowego, która określa maksymalną stratę, jaką można oczekiwać na podstawie określonego poziomu ufności. VaR wyraża stratę w danej jednostce walutowej lub procentowej wartości portfela, przy założeniu normalnego rozkładu stóp zwrotu. Jest powszechnie stosowany w zarządzaniu ryzykiem
+ES (Expected Shortfall), znany również jako Conditional Value at Risk (CVaR), jest miarą ryzyka finansowego, która wskazuje przeciętną wartość straty, jeśli przekroczony zostanie określony poziom VaR (Value at Risk). ES jest bardziej konserwatywnym podejściem do pomiaru ryzyka niż VaR, ponieważ uwzględnia również rozkład strat powyżej ustalonego poziomu VaR.
+
+W przeciwieństwie do VaR, które informuje o maksymalnej potencjalnej straty przy danym poziomie ufności, ES podaje przewidywaną średnią wartość straty, jeśli wystąpi sytuacja przekroczenia VaR. Oznacza to, że ES uwzględnia nie tylko rozmiar ekstremalnych strat, ale także ich rozkład i prawdopodobieństwo wystąpienia.
+```{r}
+library(openxlsx) 
+library(mvtnorm)
+library(readxl)
+skumulowaneA <- read_excel("C:/Users/kuba/Desktop/kredyty/projekt3/skumulowane.xlsx", 
+                               sheet = "A")
+skumulowaneBB <- read_excel("C:/Users/kuba/Desktop/kredyty/projekt3/skumulowane.xlsx", 
+                                sheet = "BB")
+skumulowaneCCC <- read_excel("C:/Users/kuba/Desktop/kredyty/projekt3/skumulowane.xlsx", 
+                                sheet = "CCC")
+stopy_procentowe <- read.csv("C:/Users/kuba/Desktop/kredyty/projekt3/stopy_procentowe.csv", row.names=1, sep=";")
+as.data.frame(skumulowaneCCC)
+```
+
+```{r}
+r12=0.4
+r13=0.15
+r23=0.2
+
+macierz_korelacji <- matrix(1,3,3)
+
+macierz_korelacji[1,2] <- r12
+macierz_korelacji[1,3] <- r13
+macierz_korelacji[2,3] <- r23
+macierz_korelacji[2,1] <- r12
+macierz_korelacji[3,1] <- r13
+macierz_korelacji[3,2] <- r23
+macierz_korelacji
+```
+
+Symulacja z wielowymiarowego rozkładu normalnego o zadanej macierzy korelacji
+```{r}
+symulacja <- rmvnorm(10000,mean = c(0,0,0),macierz_korelacji)
+#uzyte do liczenia bez korelacji 
+#symulacja <- rmvnorm(10000,mean = c(0,0,0))
+```
+
+
+Określenie przedziałów, w jakie musi wpaść liczba losowa, aby obligacja zmieniła swój rating
+```{r}
+#dla A
+quantileA <- quantile(symulacja[,1],skumulowaneA[,3])
+quantileAod <-  replace(quantileA, 9, -Inf)
+quantileAdo <-  c(Inf,quantileA[-9])
+skumulowaneA$od <- quantileAod
+skumulowaneA$do <- quantileAdo
+#dla BB
+quantileBB <- quantile(symulacja[,2],skumulowaneBB[,3])
+quantileBBod <-  replace(quantileBB, 9, -Inf)
+quantileBBdo <-  c(Inf,quantileBB[-9])
+skumulowaneBB$od <- quantileBBod
+skumulowaneBB$do <- quantileBBdo
+#dlaCCC
+#nie wiem jak interpretowac tutaj ze skumulowane dla aaa i aa jest 1, wiec dalem sobie liczbe 5 żeby nie było wgl aaa
+quantileCCC <- quantile(symulacja[,3],skumulowaneCCC[2:9,3])
+quantileCCCod <-  c(5,replace(quantileCCC, 8, -Inf))
+quantileCCCdo <-  c(5,Inf,quantileCCC[-8])
+skumulowaneCCC$od <- quantileCCCod
+skumulowaneCCC$do <- quantileCCCdo
+#sprawdzenie 
+skumulowaneA
+skumulowaneBB
+skumulowaneCCC
+```
+
+Określenie zmian ratingów
+```{r}
+zmiana<-data.frame()
+
+przypisz_rating <- function(liczba, skumulowaneA) {
+  for (i in 1:nrow(skumulowaneA)) {
+    if (liczba >= skumulowaneA$od[i] && liczba < skumulowaneA$do[i]) {
+      return(skumulowaneA$rating[i])
+    }
+  }
+  return(NA)
+}
+# Zastosowanie funkcji przypisz_rating dla każdej liczby w pierwszej kolumnie symulacjaA
+
+for (i in 1:nrow(symulacja)) {
+  zmiana[i,1] <- przypisz_rating(symulacja[i,1], skumulowaneA)
+}
+
+# Zastosowanie funkcji przypisz_rating dla każdej liczby w pierwszej kolumnie symulacjaBB
+for (i in 1:nrow(symulacja)) {
+  zmiana[i,2] <- przypisz_rating(symulacja[i,2], skumulowaneBB)
+}
+
+# Zastosowanie funkcji przypisz_rating dla każdej liczby w pierwszej kolumnie symulacjaCCC
+for (i in 1:nrow(symulacja)) {
+  zmiana[i,3] <- przypisz_rating(symulacja[i,3], skumulowaneCCC)
+}
+
+liczba_scenariuszy <-data.frame(Rating=skumulowaneA[,1])
+for(i in 1:nrow(liczba_scenariuszy)){
+  liczba_scenariuszy$A[i]<-sum(zmiana[,1]==liczba_scenariuszy$rating[i])
+  liczba_scenariuszy$BB[i]<-sum(zmiana[,2]==liczba_scenariuszy$rating[i])
+  liczba_scenariuszy$CCC[i]<-sum(zmiana[,3]==liczba_scenariuszy$rating[i])
+}
+```
+
+liczenie wartosci
+```{r}
+#po przeszukaniu internetu ustalam stopy odzysku 56% - secured 37%-unsecured
+wartoscA <- 10000/((1+stopy_procentowe[4,])^4)
+wartoscA$D <- 0.5189*10000
+wartoscBB <- 500*(1-(1+stopy_procentowe[2,])^-2)/stopy_procentowe[2,] + (10000/(1+stopy_procentowe[2,])^2)
+wartoscBB$D <- 0.56*10000 + 500
+wartoscCCC <- 500*(1-(1+stopy_procentowe[3,])^-3)/stopy_procentowe[3,] + (5000/(1+stopy_procentowe[3,])^3)
+wartoscCCC$D <- 0.37*5000 + 500
+```
+
+Wartosc rzeczywista i oczekiwana
+```{r}
+#wartosc rzeczywista
+wartosc_portfela1 <- data.frame(col1 = numeric(), col2 = numeric(), col3 = numeric())
+for (i in 1:nrow(zmiana)) {
+  wartosc_portfela1[i,1] <- wartoscA[1,match(zmiana[i,1],names(wartoscA))]
+  wartosc_portfela1[i,2] <- wartoscBB[1,match(zmiana[i,2],names(wartoscBB))]
+  wartosc_portfela1[i,3] <- wartoscCCC[1,match(zmiana[i,3],names(wartoscCCC))] 
+}
+#wartosc oczekiwana
+oczekiwana <- 8220.76+9795.005+4440.732
+oczekiwana
+```
+
+wartosc straty
+```{r}
+wartosc_portfela1$strata <- wartosc_portfela1[,1] + wartosc_portfela1[,2] + wartosc_portfela1[,3]
+```
+
+wyznaczanie var i es
+```{r}
+Var <- quantile(wartosc_portfela1$strata,0.9999)
+Es <- mean(wartosc_portfela1$strata[wartosc_portfela1$strata >= Var])
+Var
+Es
+```
+bez korelacji nie pisze kodu drugi raz, bo wystarczy zmienic przy kroku drugim podam tutaj tylko wyniki 
+var i es wyszly takie same. Zwieksza sie ryzko.

@@ -1,0 +1,300 @@
+---
+title: "projket2"
+author: "Jakub Laszczyk"
+date: "2023-05-13"
+output: html_document
+---
+
+Co to jest ryzyko kredytowe? Do czego służy model Altmana? Jakie są jego ograniczenia?
+
+Ryzyko kredytowe to szansa na straty finansowe wynikające z niewypłacalności pożyczkobiorców lub dłużników. Oznacza to, że pożyczkodawcy i inwestorzy mają ryzyko, że pożyczkobiorcy nie będą w stanie spłacić swojego zadłużenia, co prowadzi do utraty kapitału i straty zysków.
+
+Model Altmana, znany również jako Z-Score Altmana, jest narzędziem do oceny ryzyka kredytowego i prognozowania niewypłacalności przedsiębiorstw. Model ten opiera się na pięciu wskaźnikach finansowych, w tym na przykład wartości kapitału własnego, zysku netto i obrotów firmy. Wskaźniki te są następnie przetwarzane w formułę matematyczną, która generuje wynik - z-score - który określa, czy firma jest stabilna finansowo i czy ma ryzyko upadłości.
+
+Jednym z głównych ograniczeń modelu Altmana jest jego ograniczona skuteczność w przewidywaniu upadłości firm spoza sektora produkcyjnego, takich jak przedsiębiorstwa usługowe. Ponadto, model ten opiera się na danych historycznych i nie uwzględnia dynamicznych zmian w otoczeniu biznesowym, takich jak zmiany rynkowe, co może wpłynąć na trafność prognoz. W związku z tym, model Altmana należy stosować z ostrożnością i zawsze w połączeniu z innymi narzędziami oceny ryzyka kredytowego.
+
+```{r}
+library(MASS)
+data <- read.csv2("C:/Users/kuba/Desktop/kredyty/projekt2/data1year.csv")
+```
+Model altmana 0- brak upadłosci 1- upadłosc
+
+```{r}
+z_score<- function(data){
+  return(1.2*data[1]+1.4*data[2]+3.3*data[3]+0.6*data[4]+1*data[5])
+}
+
+dane_altman <- data[,c(3,6,7,8,9,65)]
+dane_altman$z_score <- apply(dane_altman[,-6], 1, z_score)
+dane_altman$Prediction <- ifelse(dane_altman$z_score > 1.81, 0, 1)
+table(dane_altman$class)
+table(dane_altman$Prediction)
+wynik_predykcji <- table(dane_altman$Prediction, dane_altman$class)
+accuracy <- (wynik_predykcji[2,2]+wynik_predykcji[1,1])/(wynik_predykcji[1,1]+wynik_predykcji[2,1]+wynik_predykcji[1,2]+wynik_predykcji[2,2])
+recall <- wynik_predykcji[2,2]/(wynik_predykcji[2,2]+wynik_predykcji[1,2])
+specificity <-wynik_predykcji[1,1]/(wynik_predykcji[1,1]+wynik_predykcji[2,1])
+precision <-wynik_predykcji[2,2]/(wynik_predykcji[2,2]+wynik_predykcji[2,1])
+F1_score <- 2*precision*recall/(precision+recall)
+wynik_predykcji
+accuracy
+precision
+recall
+specificity
+F1_score
+```
+Niezrownowazony zbior danych wiec nie patrzymy na accuracy.recall na poziomie 0.59 czyli nie jest zle ale tez nie najlepiej,bardzo slabe precision 0.1672,specifity na dobrym poziomie 0.78, mozliwe ze trzeba sprawdzic inny prog odciecia lub do modelu wybrac inne/wiecej zmiennych
+
+
+#tutaj masz do interpretacji, jak cos to pytaj chat jakie wartosci sa lepsze itd
+Recall (czułość) to miara określająca stosunek liczby prawdziwie pozytywnych przypadków (True Positives - TP) do sumy liczby prawdziwie pozytywnych przypadków i liczby fałszywie negatywnych przypadków (False Negatives - FN). Innymi słowy, recall mówi nam, jak wiele z rzeczywiście pozytywnych przypadków nasz klasyfikator poprawnie wykrył. Im wyższa wartość recall, tym mniej rzeczywistych pozytywnych przypadków przegapimy.
+
+Precision (precyzja) to miara określająca stosunek liczby prawdziwie pozytywnych przypadków (TP) do sumy liczby prawdziwie pozytywnych przypadków i liczby fałszywie pozytywnych przypadków (False Positives - FP). Innymi słowy, precision mówi nam, jak wiele z naszych pozytywnych predykcji jest faktycznie prawdziwych. Im wyższa wartość precision, tym mniej błędnych pozytywnych przypadków przypiszemy.
+
+Accuracy (dokładność) to miara, która określa odsetek poprawnie sklasyfikowanych przypadków (zarówno pozytywnych, jak i negatywnych) spośród wszystkich przypadków. Im wyższa wartość accuracy, tym lepsza jakość klasyfikacji. Jednak w przypadku niezrównoważonych zbiorów danych, gdzie jedna klasa jest znacznie bardziej liczna niż druga, accuracy może być mylące, ponieważ model może osiągnąć wysoką dokładność poprzez przewidywanie dominującej klasy.
+
+Specificity (specyficzność) mierzy zdolność modelu do poprawnego zidentyfikowania negatywnych przypadków. Wyraża ona odsetek poprawnie sklasyfikowanych przypadków negatywnych spośród wszystkich rzeczywistych przypadków negatywnych. Wyższa wartość specificity oznacza lepszą zdolność modelu do wykrywania negatywnych przypadków.
+
+F1-score to miara, która uwzględnia zarówno precision (precyzję) i recall (czułość). F1-score jest średnią harmoniczną precyzji i recall. Harmoniczna średnia uwzględnia równoczesnie precyzję i recall, dlatego F1-score jest przydatne, gdy zależy nam na równowadze między precyzją a recall. Wyższa wartość F1-score oznacza lepszą jakość klasyfikacji.
+
+Model LDA
+```{r}
+dane_lda <- data[,c(3,6,7,8,9)]
+y_lda <- data[,65]
+lda.fit <- lda(y_lda ~ ., data = dane_lda)
+lda.fit
+```
+ten sam problem co wczesniej, zle zbilansowane dane co przykrywa jakosc predykcji 
+Zmeinne maja bardzo maly wspolczynnik dyskryminacji co moze oznaczac ze maja maly wplyw na predykcje, mozliwe ze trzeba wybrac inne zmienne. 
+
+bilansowanie danych
+```{r}
+table(data$class)
+data_0 <- subset(data, class == 0)
+data_1 <- subset(data, class == 1)
+set.seed(123)
+n <- min(nrow(data_0), nrow(data_1))
+data_0_sample <- data_0[sample(nrow(data_0), n), ]
+data_1_sample <- data_1[sample(nrow(data_1), n), ]
+data_balanced <- rbind(data_0_sample, data_1_sample)
+```
+prognoza na zbilansowanych danych altman
+```{r}
+dane_altman2 <- data_balanced[,c(3,6,7,8,9,65)]
+dane_altman2$z_score <- apply(dane_altman2[,-6], 1, z_score)
+dane_altman2$Prediction <- ifelse(dane_altman2$z_score > 1.81, 0, 1)
+wynik_predykcji2 <- table(dane_altman2$Prediction, dane_altman2$class)
+accuracy2 <- (wynik_predykcji2[2,2]+wynik_predykcji2[1,1])/(wynik_predykcji2[1,1]+wynik_predykcji2[2,1]+wynik_predykcji2[1,2]+wynik_predykcji2[2,2])
+recall2 <- wynik_predykcji2[2,2]/(wynik_predykcji2[2,2]+wynik_predykcji2[1,2])
+specificity2 <-wynik_predykcji2[1,1]/(wynik_predykcji2[1,1]+wynik_predykcji2[2,1])
+precision2 <-wynik_predykcji2[2,2]/(wynik_predykcji2[2,2]+wynik_predykcji2[2,1])
+F1_score2 <- 2*precision2*recall2/(precision2+recall2)
+wynik_predykcji2
+accuracy2
+recall2
+specificity2
+precision2
+F1_score2
+```
+accuracy na poziomie 67%, precision na poziomie 70%.recall na poziomie 60% swiadczy o tym ze nasz model przeoczył duzo pozytywnych przypadkow(blednie przewidzial ze firma nie upadnie)
+
+prognoza na zbilansowanych danych LDA
+```{r}
+dane_lda2 <- data_balanced[,c(3,6,7,8,9,65)]
+set.seed(123)
+indeks <- sample(2, nrow(dane_lda2),
+              replace = TRUE,
+              prob = c(0.8, 0.2))
+training <- dane_lda2[indeks==1,]
+testing <- dane_lda2[indeks==2,]
+y_training <- training[,6]
+y_testing <- testing[,6]
+lda.fit2 <- lda(y_training~ ., data = training[-6])
+lda.fit2
+#treningowy
+predykcja <- predict(lda.fit2, training)
+x <- predict(lda.fit2, training)$class
+tabela <- table(Predicted = x, Actual = training[,6])
+tabela
+accuracy<-sum(diag(tabela))/sum(tabela)
+accuracy
+#testowy
+predykcja <- predict(lda.fit2, testing)
+x <- predict(lda.fit2, testing)$class
+tabela <- table(Predicted = x, Actual = testing[,6])
+tabela
+accuracy<-sum(diag(tabela))/sum(tabela)
+accuracy
+#porownanie z modelem bez rozdzielania na  treningowego i testowego 
+dane_lda3 <- data_balanced[,c(3,6,7,8,9)]
+y_lda3 <- data_balanced[,65]
+lda.fit3 <- lda(y_lda3 ~ ., data = dane_lda3)
+lda.fit3
+```
+W modelu z podzialem wyniki sa accuracy 0,55.  W modelu bez prawdopodobienstwo wyszlo 50% z czego nic nie wynika, poniewaz zestaw danych byl rozlozony po 50%. zmienna attr8 ma bardzo maly wspolczynnik dyskryminacji, reszta tez ma dosyc małe. 
+Uwazam, ze model altmana moze byc dobra pomoca przy prognozowaniu upadłosci firmy, ale sam w sobie nie jest w stanie dokladnie tego przewidziec, może gdyby zmienic punkt odciecia lub popracowac nad doborem zmiennych to przynioslo by to lepszy efekt 
+
+Model A.Hołdy 
+```{r}
+z_h <- function(data){
+  return(0.605+0.681*data[1]-0.0196*data[2]*100+0.157*data[3]*100+0.00969*data[4]*100+0.000672*data[5])
+}
+
+dane_holdy <- data[,c(4,2,36,1,32,65)]
+dane_holdy$z_h <- apply(dane_holdy[,-6], 1, z_h)
+dane_holdy$Prediction <- ifelse(dane_holdy$z_h >= 0.1,0,
+                                ifelse(dane_holdy$z_h < -0.3,1,
+                                       ifelse(dane_holdy$z_h >= -0.3 & dane_holdy$z_h < 0.1, 2,NA)))
+table(dane_holdy$Prediction)
+table(dane_holdy$Prediction,dane_holdy$class)
+
+wynik_predykcji2 <- table(dane_holdy$Prediction,dane_holdy$class)
+accuracy2 <- (wynik_predykcji2[2,2]+wynik_predykcji2[1,1])/(wynik_predykcji2[1,1]+wynik_predykcji2[2,1]+wynik_predykcji2[1,2]+wynik_predykcji2[2,2])
+recall2 <- wynik_predykcji2[2,2]/(wynik_predykcji2[2,2]+wynik_predykcji2[1,2])
+specificity2 <-wynik_predykcji2[1,1]/(wynik_predykcji2[1,1]+wynik_predykcji2[2,1])
+precision2 <-wynik_predykcji2[2,2]/(wynik_predykcji2[2,2]+wynik_predykcji2[2,1])
+F1_score2 <- 2*precision2*recall2/(precision2+recall2)
+wynik_predykcji2
+accuracy2
+recall2
+specificity2
+precision2
+F1_score2
+```
+na niezbilansowanych danych tylko 5 razy zostala przewidziana upadlosc, szara strefa 1 raz. Podobnie na danych zbilansowanych, co swiadczy o tym ze na naszych danych nie jest to najlpeszy model do przewidywania 
+
+model B.prusaka
+```{r}
+z_p <- function(data){
+  return(6.5245*data[1]+0.148*data[2]+0.4061*data[3]+2.1754*data[4]-1.5685)
+}
+
+dane_prusak <- data[,c(22,33,4,39,65)]
+dane_prusak$z_p <- apply(dane_prusak[,-6], 1, z_p)
+dane_prusak$Prediction <- ifelse(dane_prusak$z_p >=0.65,0,
+                                ifelse(dane_prusak$z_p <= -0.13,1,
+                                       ifelse(dane_prusak$z_p >= -0.13 & dane_prusak$z_p < 0.65, 2,NA)))
+table(dane_prusak$Prediction)
+table(dane_prusak$Prediction,dane_prusak$class)
+
+
+wynik_predykcji2 <- table(dane_prusak$class,dane_prusak$Prediction)
+accuracy2 <- (wynik_predykcji2[2,2]+wynik_predykcji2[1,1])/(wynik_predykcji2[1,1]+wynik_predykcji2[2,1]+wynik_predykcji2[1,2]+wynik_predykcji2[2,2])
+recall2 <- wynik_predykcji2[2,2]/(wynik_predykcji2[2,2]+wynik_predykcji2[1,2])
+specificity2 <-wynik_predykcji2[1,1]/(wynik_predykcji2[1,1]+wynik_predykcji2[2,1])
+precision2 <-wynik_predykcji2[2,2]/(wynik_predykcji2[2,2]+wynik_predykcji2[2,1])
+F1_score2 <- 2*precision2*recall2/(precision2+recall2)
+wynik_predykcji2
+accuracy2
+recall2
+specificity2
+precision2
+F1_score2
+```
+0- brak upadlosci
+1- upadlosc 
+2597- nie upadla i przewidziane ze nie upadla
+71-razy tak naprawde nie upadla, a u nas przewidziana jako upadla
+1580-nie upadla a u nas przewidziaan ze nie upadla
+287- dobra prognoza upadlosci
+
+
+
+prusaka na zbilansowanych
+```{r}
+z_p <- function(data){
+  return(6.5245*data[1]+0.148*data[2]+0.4061*data[3]+2.1754*data[4]-1.5685)
+}
+
+dane_prusak <- data_balanced[,c(22,33,4,39,65)]
+dane_prusak$z_p <- apply(dane_prusak[,-6], 1, z_p)
+dane_prusak$Prediction <- ifelse(dane_prusak$z_p >=0.65,0,
+                                ifelse(dane_prusak$z_p <= -0.13,1,
+                                       ifelse(dane_prusak$z_p >= -0.13 & dane_prusak$z_p < 0.65, 2,NA)))
+table(dane_prusak$Prediction)
+table(dane_prusak$Prediction,dane_prusak$class)
+
+wynik_predykcji2 <- table(dane_prusak$Prediction,dane_prusak$class)
+accuracy2 <- (wynik_predykcji2[2,2]+wynik_predykcji2[1,1])/(wynik_predykcji2[1,1]+wynik_predykcji2[2,1]+wynik_predykcji2[1,2]+wynik_predykcji2[2,2])
+recall2 <- wynik_predykcji2[2,2]/(wynik_predykcji2[2,2]+wynik_predykcji2[1,2])
+specificity2 <-wynik_predykcji2[1,1]/(wynik_predykcji2[1,1]+wynik_predykcji2[2,1])
+precision2 <-wynik_predykcji2[2,2]/(wynik_predykcji2[2,2]+wynik_predykcji2[2,1])
+F1_score2 <- 2*precision2*recall2/(precision2+recall2)
+wynik_predykcji2
+accuracy2
+recall2
+specificity2
+precision2
+F1_score2
+```
+na danych zbilansowanych 
+190- nie upadla i przewidziane ze nie upadla
+71-razy tak naprawde nie upadla, a u nas przewidziana jako upadla
+113-upadla a u nas przewidziaan ze nie upadla
+287- dobra prognoza upadlosci
+lepiej ale dalej slabo, wazne ze duzo przewidzianych upadlosci dobrze a to jest dla nas wazniejsze. 
+
+
+model poznanski
+```{r}
+z_p <- function(data){
+  return(3.562*data[1]+1.58*data[2]+4.288*data[3]+6.719*data[4]-2.268)
+}
+
+dane_poznanski <- data[,c(1,46,10,19,65)]
+dane_poznanski$z_p <- apply(dane_poznanski[,-6], 1, z_p)
+dane_poznanski$Prediction <- ifelse(dane_poznanski$z_p >0,0,1)
+                                
+table(dane_poznanski$Prediction)
+table(dane_poznanski$Prediction,dane_poznanski$class)
+
+wynik_predykcji2 <- table(dane_poznanski$Prediction,dane_poznanski$class)
+accuracy2 <- (wynik_predykcji2[2,2]+wynik_predykcji2[1,1])/(wynik_predykcji2[1,1]+wynik_predykcji2[2,1]+wynik_predykcji2[1,2]+wynik_predykcji2[2,2])
+recall2 <- wynik_predykcji2[2,2]/(wynik_predykcji2[2,2]+wynik_predykcji2[1,2])
+specificity2 <-wynik_predykcji2[1,1]/(wynik_predykcji2[1,1]+wynik_predykcji2[2,1])
+precision2 <-wynik_predykcji2[2,2]/(wynik_predykcji2[2,2]+wynik_predykcji2[2,1])
+F1_score2 <- 2*precision2*recall2/(precision2+recall2)
+wynik_predykcji2
+accuracy2
+recall2
+specificity2
+precision2
+F1_score2
+```
+4544- nie upadla i przewidziane ze nie upadla
+151-razy tak naprawde nie upadla, a u nas przewidziana jako upadla
+938-upadla a u nas przewidziaan ze nie upadla
+255- dobra prognoza upadlosci
+tak samo mozna rozpisac wyniki tej predykcji najwazniejsze ze 255 dobrze przewidzialo tych ktore upadlo
+model poznanski na zbilansowanych
+```{r}
+z_p <- function(data){
+  return(3.562*data[1]+1.58*data[2]+4.288*data[3]+6.719*data[4]-2.268)
+}
+
+dane_poznanski <- data_balanced[,c(1,46,10,19,65)]
+dane_poznanski$z_p <- apply(dane_poznanski[,-6], 1, z_p)
+dane_poznanski$Prediction <- ifelse(dane_poznanski$z_p >0,0,1)
+                                
+table(dane_poznanski$Prediction)
+table(dane_poznanski$Prediction,dane_poznanski$class)
+
+wynik_predykcji2 <- table(dane_poznanski$Prediction,dane_poznanski$class)
+accuracy2 <- (wynik_predykcji2[2,2]+wynik_predykcji2[1,1])/(wynik_predykcji2[1,1]+wynik_predykcji2[2,1]+wynik_predykcji2[1,2]+wynik_predykcji2[2,2])
+recall2 <- wynik_predykcji2[2,2]/(wynik_predykcji2[2,2]+wynik_predykcji2[1,2])
+specificity2 <-wynik_predykcji2[1,1]/(wynik_predykcji2[1,1]+wynik_predykcji2[2,1])
+precision2 <-wynik_predykcji2[2,2]/(wynik_predykcji2[2,2]+wynik_predykcji2[2,1])
+F1_score2 <- 2*precision2*recall2/(precision2+recall2)
+wynik_predykcji2
+accuracy2
+recall2
+specificity2
+precision2
+F1_score2
+```
+335- nie upadla i przewidziane ze nie upadla
+71-razy tak naprawde nie upadla, a u nas przewidziana jako upadla
+151-upadla a u nas przewidziaan ze nie upadla
+255- dobra prognoza upadlosci
+
+
+sa podobne wyniki co moze swiadczyc overfittingu lub zle dobranych zmiennych
